@@ -1,65 +1,56 @@
-# Starter Projects
+# Image Uploader
 
 ## Development
 
-### Copying a starter project
+This repo is the result of a small spike to design and test integrating a generic image uploader component that would allow for the following:
 
-1. Create a new public repository for your project (e.g. `new-repository`)
-2. Create a clone of the starter repo
-    ```
-    git clone --single-branch https://github.com/concord-consortium/starter-projects.git new-repository
-    ```
-3. Update the starter repo
 
-    First, update and run the starter project:
-    ```
-    cd new-repository
-    npm install
-    npm update
-    npm start
-    ```
-    Then, verify the project works by visiting [localhost:8080](http://localhost:8080) and checking for the words "Hello World".
-    Also verify that the test suite still passes:
-    ```
-    npm run test:full
-    ```
-    If the updates are functional, please commit any changes to `package.json` or `package-lock.json` back to the
-    Starter Projects repository for future use.
+### Uploader Component
 
-4. Next, re-initialize the repo to create a new history
-    ```
-    rm -rf .git
-    git init
-    ```
-5. Create an initial commit for your new project
-    ```
-    git add .
-    git commit -m "Initial commit"
-    ```
-6. Push to your new repository
-    ```
-    git remote add origin https://github.com/concord-consortium/new-repository.git
-    git push -u origin master
-    ```
-7. Open your new repository and update all instances of `starter-projects` to `new-repository` and `Starter Projects` to `New Repository`.
-   Note: this will do some of the configuration for GitHub Actions deployment to S3, but you'll still need to follow
-   the instructions [here](https://docs.google.com/document/d/e/2PACX-1vTpYjbGmUMxk_FswUmapK_RzVyEtm1WdnFcNByp9mqwHnp0nR_EzRUOiubuUCsGwzQgOnut_UiabYOM/pub).
-8. To record the cypress tests results to the cypress dashboard service:
-   - go to https://dashboard.cypress.io
-   - create a new project
-   - go to the settings for the project
-   - in the github integration section choose the github repo to connect this project to
-   - copy the record key, and create a secret in the github repositories settings with the name CYPRESS_RECORD_KEY
-   - copy the Project ID and replace the value of `projectId` in cypress.json
-9. Your new repository is ready! Remove this section of the `README`, and follow the steps below to use it.
+- A component (in this repo) importable into `question-interactives` that would show a button that when clicked would show two choices under the button: "Upload from your computer" and "Upload from your mobile device".
+- If the user chooses "Upload from your computer" the two choices are replaced by a drag-drop area with a label of "Drag an image file here to upload or click to select a file".  Once an image was given the Attachments API would be used to upload the file to S3.  The component would poll the read version image url and once found would use a callback given in the component props to pass back the url to the interactive component.
+- If the user chooses "Upload from your mobile device" the Attachments API would be used to generate an upload url with a long lived signature (10 minutes?).  A QR code would be generated for an url in the form of `<external-device-uploader-page-url>?uploadUrl=<attachments-upload-url>` and would be displayed in place of the two choices.
 
-### Initial steps
+### External Device Uploader Page
 
-1. Clone this repo and `cd` into it
-2. Run `npm install` to pull dependencies
-3. Run `npm start` to run `webpack-dev-server` in development mode with hot module replacement
+- A user would use their mobile device to scan the QR code generated in the uploader component which would load the external device uploader page (in this repo) which would show two choices: "Take a photo" and "Select an Image from Your Library".
+- The "Take a photo" component would be lifted from the Vortex repo (https://github.com/concord-consortium/vortex/blob/master/src/mobile-app/components/camera.tsx)
+- The "Select an Image..." would use a file input component with the mimetype set to `image/*` using the accept attribute.
+- In either case once image data is available the page would use the passed `uploadUrl` query param to save the image data as a post request.
+- The uploader component (as it would during its local upload) would be polling the read image url and updating its parent component when the image url resolved.
 
-#### Run using HTTPS
+
+### DONE
+
+- System architecture and this documentation
+- Setup this repo
+- Created an barebones uploader component and external device uploader page
+- Updated the build configuration to generate a library for the uploader component and a S3 hostable page for the external device uploader page.
+- Integrated the barebones uploader component into the `questions-interactive` repo to verify the library build worked
+
+### TODO TO GO FROM SPIKE TO REAL VERSION (3.5 days effort)
+
+- Setup Dev Environment
+    - Locally use `npm link` to link the `dist/component` folder
+    - Create a local branch in `question-interactives` and use `npm link @concord-consortium/image-uploader` to link to the local code
+    - Add `import { ImageUploader } from "@concord-consortium/image-uploader";` to Labbook in `question-interactives` and then add `<ImageUploader />` before the existing `<UploadImage...>` component.
+    - Build `questions-interactives` and test the stubbed uploader
+- Stub/Wirefame Elements (1 day)
+    - Create a stubbed uploader class that will be shared between the component and the uploader page.  Its constructor will take an url and it will expose a method to upload a passed in image (either by filename or buffer) and returns a Promise that resolves when the image is uploaded or upload fails
+    - Add UI to interactive component that asks the user if they want to upload from the desktop or from another device.  Implement the desktop selector and uploader with a stubbed uploader that returns a static url to a kitten picture.  Test this in Lara and AP.
+    - Create new uploader page as wireframe with no upload support and get it serving as static page on S3 using normal GitHub actions
+    - Update new interactive component to generate QR code using the url to the uploader page with a fake attachments post url when the upload from other device option is selected. Test this in Lara and AP.  Use the existing code in Vortex for the QR Code generation (https://github.com/concord-consortium/vortex/blob/06b9424d96e66cedc3010c3e739bfc119a918cc0/src/lara-app/components/runtime.tsx#L55-L70)
+- Implement Uploader (4 hours)
+    - Add generation of Attachments read/write urls in component and update QR code generation
+    - Implement file upload using `fetch` API (for easier Jest mocking)
+    - Test this in Lara and AP
+- Flesh out Component/Page UI (1 day)
+    - Style wireframed component and page to match existing Lara/AP styling
+    - Add watching of upload progress in interactive component and uploader page.
+    - Add callback property to component to send url to parent component. On upload finished use the prop callback to set the url.
+- Add Jest and Cypress Tests and setup test activities for QA (1 day)
+
+### Run using HTTPS
 
 Additional steps are required to run using HTTPS.
 
@@ -90,9 +81,9 @@ You *do not* need to build to deploy the code, that is automatic.  See more info
 Production releases to S3 are based on the contents of the /dist folder and are built automatically by GitHub Actions
 for each branch pushed to GitHub and each merge into production.
 
-Merges into production are deployed to http://starter-projects.concord.org.
+Merges into production are deployed to TDB
 
-Other branches are deployed to http://starter-projects.concord.org/branch/<name>.
+Other branches are deployed to TDB
 
 To deploy a production release:
 
@@ -106,7 +97,7 @@ To deploy a production release:
 8. Checkout production
 9. Run `git merge master --no-ff`
 10. Push production to GitHub
-11. Use https://github.com/concord-consortium/starter-projects/releases to create a new release tag
+11. Use https://github.com/concord-consortium/image-uploader/releases to create a new release tag
 
 ### Testing
 
@@ -132,6 +123,6 @@ Inside of your `package.json` file:
 
 ## License
 
-Starter Projects are Copyright 2018 (c) by the Concord Consortium and is distributed under the [MIT license](http://www.opensource.org/licenses/MIT).
+Copyright 2018 (c) by the Concord Consortium and is distributed under the [MIT license](http://www.opensource.org/licenses/MIT).
 
 See license.md for the complete license text.
